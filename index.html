@@ -25,7 +25,6 @@
     color: var(--text);
   }
 
-  /* 顶部栏 */
   .topbar {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -75,7 +74,6 @@
   .dot-green { background: #00b894; }
   .dot-red { background: #ff7675; }
 
-  /* 分类按钮 */
   .filter-bar {
     position: fixed;
     top: 80px; left: 50%;
@@ -89,7 +87,11 @@
     border-radius: 100px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     pointer-events: auto;
+    max-width: 90vw;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .filter-bar::-webkit-scrollbar { display: none; }
   .filter-btn {
     padding: 6px 16px;
     border-radius: 100px;
@@ -108,7 +110,6 @@
     box-shadow: 0 4px 12px rgba(255,107,107,0.3);
   }
 
-  /* 主容器 */
   .stage {
     width: 100vw;
     height: 100vh;
@@ -119,19 +120,17 @@
     overflow: hidden;
   }
 
-  /* 卡片轨道 */
   .track {
     display: flex;
     align-items: center;
     gap: 40px;
     position: absolute;
     left: 50%;
-    transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
     will-change: transform;
     padding: 0 50vw;
   }
 
-  /* 单卡片 */
   .card {
     width: 85vw;
     max-width: 900px;
@@ -145,19 +144,18 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s, opacity 0.3s;
     cursor: grab;
   }
   .card:active { cursor: grabbing; }
   .card.center { box-shadow: var(--shadow-hover); }
   .card.side {
     transform: scale(0.88);
-    opacity: 0.5;
-    filter: blur(2px);
+    opacity: 0.45;
+    filter: blur(1px);
     pointer-events: none;
   }
 
-  /* 图片区 */
   .img-wrap {
     flex: 1;
     position: relative;
@@ -176,8 +174,6 @@
   }
   .card-img.loading {
     opacity: 0;
-    width: 100%;
-    height: 100%;
     background: linear-gradient(90deg, #f0f1f5 25%, #e8e9ed 50%, #f0f1f5 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
@@ -188,7 +184,6 @@
   }
   .card-img.loaded { opacity: 1; }
 
-  /* 占位图检测失败提示 */
   .img-error {
     position: absolute;
     inset: 0;
@@ -205,7 +200,6 @@
   }
   .img-error.show { opacity: 1; }
 
-  /* 底部信息栏 */
   .card-info {
     padding: 16px 24px;
     background: #fff;
@@ -244,7 +238,6 @@
   .tag-large { background: #ffa726; }
   .tag-normal { background: #78909c; }
 
-  /* 导航箭头 */
   .nav-arrow {
     position: fixed;
     top: 50%;
@@ -262,7 +255,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text);
-    font-size: 20px;
+    font-size: 22px;
     transition: all 0.2s;
     opacity: 0.6;
   }
@@ -272,9 +265,9 @@
   @media (max-width: 768px) {
     .nav-arrow { display: none; }
     .card { width: 92vw; height: 65vh; }
+    .card-info { padding: 12px 16px; }
   }
 
-  /* 底部指示器 */
   .dots {
     position: fixed;
     bottom: 24px;
@@ -289,7 +282,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: rgba(0,0,0,0.15);
+    background: rgba(0,0,0,0.12);
     transition: all 0.3s;
   }
   .dot.active {
@@ -298,7 +291,6 @@
     background: var(--accent);
   }
 
-  /* 操作按钮 */
   .action-bar {
     position: fixed;
     bottom: 24px;
@@ -323,9 +315,7 @@
     transition: all 0.25s;
   }
   .fab:hover { transform: scale(1.1); box-shadow: 0 8px 28px rgba(255,107,107,0.45); }
-  .fab:active { transform: scale(0.95); }
 
-  /* 灯箱 */
   .lightbox {
     position: fixed;
     inset: 0;
@@ -360,7 +350,6 @@
     justify-content: center;
   }
 
-  /* 提示 toast */
   .toast {
     position: fixed;
     top: 50%;
@@ -382,7 +371,6 @@
 </head>
 <body>
 
-<!-- 顶部 -->
 <div class="topbar">
   <div class="logo">
     <div class="logo-icon">🍮</div>
@@ -393,7 +381,6 @@
   </div>
 </div>
 
-<!-- 分类 -->
 <div class="filter-bar" id="filterBar">
   <button class="filter-btn active" data-cat="all" onclick="setCategory('all')">全部</button>
   <button class="filter-btn" data-cat="gif" onclick="setCategory('gif')">动图</button>
@@ -403,62 +390,52 @@
   <button class="filter-btn" data-cat="normal" onclick="setCategory('normal')">普通</button>
 </div>
 
-<!-- 主舞台 -->
 <div class="stage" id="stage">
   <div class="track" id="track"></div>
 </div>
 
-<!-- 导航 -->
 <button class="nav-arrow prev" onclick="goPrev()">‹</button>
 <button class="nav-arrow next" onclick="goNext()">›</button>
 
-<!-- 指示器 -->
 <div class="dots" id="dots"></div>
 
-<!-- 右下角操作 -->
 <div class="action-bar">
   <button class="fab" onclick="refreshAll()" title="换一批">🔄</button>
 </div>
 
-<!-- 灯箱 -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="event.stopPropagation(); closeLightbox()">×</button>
   <img id="lightboxImg" src="" alt="">
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
-const BUFFER_SIZE = 5;      // 轨道中保持的卡片数
-const LOAD_TIMEOUT = 6000;
+const INIT_SIZE = 30;      // 初始加载30张
+const APPEND_SIZE = 10;    // 触底时追加10张
+const LOAD_TIMEOUT = 8000;
 const MIN_DIMENSION = 50;
 const MAX_CONCURRENT = 4;
 const JSON_URL = 'fuliba_images.json';
 
 let allImages = [];
-let pool = [];              // 当前分类可用池
-let track = [];             // 轨道上的卡片数据 {id, item, element, loaded}
-let currentIndex = 0;       // 当前居中索引
+let pool = [];
+let track = [];
+let currentIndex = 0;
 let category = 'all';
 let failedCount = 0;
 
-let touchStartX = 0;
-let touchStartY = 0;
-let isDragging = false;
-
-// 并发控制
 let loadQueue = [];
 let activeLoads = 0;
 
-function optimizeUrl(url) {
-  if (url.includes('sogoucdn.com') && url.includes('/q/100/')) {
-    return url.replace('/q/100/', '/q/60/');
-  }
-  return url;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1500);
 }
 
-// Canvas 检测占位图
+// Canvas 检测 sogou 占位图
 function isPlaceholderByCanvas(img) {
   try {
     const canvas = document.createElement('canvas');
@@ -481,14 +458,6 @@ function isPlaceholderByCanvas(img) {
   } catch (e) { return false; }
 }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 1500);
-}
-
-// 初始化数据
 fetch(JSON_URL)
   .then(r => r.json())
   .then(data => {
@@ -499,8 +468,7 @@ fetch(JSON_URL)
         allImages.push({
           id: id++,
           articleUrl,
-          imgUrl: optimizeUrl(imgUrl),
-          originalUrl: imgUrl,
+          imgUrl: imgUrl, // 高清原图，不压缩
           title,
           loaded: false,
           width: 0,
@@ -532,7 +500,7 @@ function rebuildPool() {
     if (category === 'all') return true;
     if (category === 'gif') return i.categories.includes('gif');
     if (i.loaded) return i.categories.includes(category);
-    return true;
+    return true; // 未加载的允许尝试
   });
 }
 
@@ -557,41 +525,45 @@ function setCategory(cat) {
   currentIndex = 0;
   document.getElementById('track').innerHTML = '';
   initTrack();
-  showToast(`已切换: ${cat === 'all' ? '全部' : cat === 'gif' ? '动图' : cat === 'vertical' ? '竖长图' : cat === 'horizontal' ? '横长图' : cat === 'large' ? '高清大图' : '普通图'}`);
+  const catName = {all:'全部', gif:'动图', vertical:'竖长图', horizontal:'横长图', large:'高清大图', normal:'普通图'}[cat];
+  showToast(`已切换: ${catName}`);
 }
 
 function refreshAll() {
-  // 清空轨道，重新随机填充
   track = [];
   currentIndex = 0;
   document.getElementById('track').innerHTML = '';
-  allImages.forEach(i => { i.loadStarted = false; });
+  allImages.forEach(i => { i.loadStarted = false; i.loaded = false; });
   rebuildPool();
   initTrack();
   showToast('已换一批');
 }
 
-function pickRandom(n) {
-  const arr = [...pool];
+function pickRandom(n, excludeIds) {
+  const exclude = excludeIds || new Set();
+  const available = pool.filter(p => !exclude.has(p.id) && !p.failed);
+  if (available.length === 0) return [];
+  
+  const arr = [...available];
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return arr.slice(0, n).filter(i => i && !i.failed);
+  return arr.slice(0, n);
 }
 
 function initTrack() {
-  const items = pickRandom(BUFFER_SIZE);
+  const existingIds = new Set(track.map(t => t.item.id));
+  const items = pickRandom(INIT_SIZE, existingIds);
   if (items.length === 0) {
-    document.getElementById('track').innerHTML = '<div style="color:#636e72;">暂无可用图片</div>';
+    document.getElementById('track').innerHTML = '<div style="color:#636e72; padding:40px;">暂无可用图片</div>';
     return;
   }
-  items.forEach((item, idx) => {
-    appendCard(item, idx);
-  });
+  items.forEach(item => appendCard(item));
   currentIndex = 0;
   updateTrack();
   updateDots();
+  preloadNearby();
 }
 
 function createCardElement(item) {
@@ -610,7 +582,7 @@ function createCardElement(item) {
 
   const err = document.createElement('div');
   err.className = 'img-error';
-  err.innerHTML = '<div>⚠️</div><div>图片加载失败</div>';
+  err.innerHTML = '<div style="font-size:32px; opacity:0.5;">⚠️</div><div>图片加载失败</div>';
   wrap.appendChild(err);
 
   card.appendChild(wrap);
@@ -620,21 +592,17 @@ function createCardElement(item) {
   info.innerHTML = `<div class="card-title">${item.title}</div><div class="card-meta" id="meta-${item.id}">加载中...</div>`;
   card.appendChild(info);
 
-  // 点击灯箱
-  card.addEventListener('click', (e) => {
-    if (!item.failed && item.loaded) {
-      openLightbox(item.originalUrl);
-    }
+  card.addEventListener('click', () => {
+    if (!item.failed && item.loaded) openLightbox(item.imgUrl);
   });
 
   return { element: card, img, err, meta: info.querySelector('.card-meta'), item };
 }
 
-function appendCard(item, position) {
+function appendCard(item) {
   const cardObj = createCardElement(item);
-  track.splice(position, 0, cardObj);
+  track.push(cardObj);
   document.getElementById('track').appendChild(cardObj.element);
-  enqueueLoad(cardObj);
   return cardObj;
 }
 
@@ -646,23 +614,36 @@ function removeCardAt(index) {
   pool = pool.filter(p => p.id !== cardObj.item.id);
   updateStats();
 
-  // 动画移除
   cardObj.element.style.transform = 'scale(0.8)';
   cardObj.element.style.opacity = '0';
   setTimeout(() => {
     if (cardObj.element.parentNode) cardObj.element.remove();
     track.splice(index, 1);
-    // 补充新卡片
-    const newItems = pickRandom(1);
-    if (newItems.length > 0) {
-      appendCard(newItems[0], track.length);
-    }
+    if (index <= currentIndex && currentIndex > 0) currentIndex--;
     updateTrack();
     updateDots();
+    // 补充新卡片
+    appendMore(APPEND_SIZE);
   }, 300);
 }
 
+function appendMore(n) {
+  const existingIds = new Set(track.map(t => t.item.id));
+  const items = pickRandom(n, existingIds);
+  if (items.length === 0) return;
+  items.forEach(item => appendCard(item));
+  updateDots();
+  // 预加载新追加的
+  items.forEach((_, i) => {
+    const idx = track.length - items.length + i;
+    if (Math.abs(idx - currentIndex) <= 3) {
+      enqueueLoad(track[idx]);
+    }
+  });
+}
+
 function enqueueLoad(cardObj) {
+  if (cardObj.item.loadStarted || cardObj.item.failed) return;
   loadQueue.push(cardObj);
   processQueue();
 }
@@ -684,18 +665,17 @@ function doLoadImage(cardObj, onDone) {
   const timer = setTimeout(() => {
     if (!resolved) {
       resolved = true;
-      showError();
+      handleFail();
       if (onDone) onDone();
     }
   }, LOAD_TIMEOUT);
 
-  function showError() {
+  function handleFail() {
     item.failed = true;
     img.classList.remove('loading');
     img.style.display = 'none';
     err.classList.add('show');
     meta.innerHTML = '<span style="color:#ff7675">加载失败</span>';
-    // 延迟移除
     const idx = track.indexOf(cardObj);
     if (idx !== -1) removeCardAt(idx);
   }
@@ -705,7 +685,7 @@ function doLoadImage(cardObj, onDone) {
     if (isPlaceholderByCanvas(img) || img.naturalWidth < MIN_DIMENSION || img.naturalHeight < MIN_DIMENSION) {
       resolved = true;
       clearTimeout(timer);
-      showError();
+      handleFail();
       if (onDone) onDone();
       return;
     }
@@ -717,7 +697,6 @@ function doLoadImage(cardObj, onDone) {
     item.width = img.naturalWidth;
     item.height = img.naturalHeight;
 
-    // 分类
     const ratio = item.height / item.width;
     const cats = ['all'];
     if (item.imgUrl.toLowerCase().includes('.gif')) cats.push('gif');
@@ -727,18 +706,16 @@ function doLoadImage(cardObj, onDone) {
     if (item.width > 1500 || item.height > 1500) cats.push('large');
     item.categories = cats;
 
-    // 标签
     const tagMap = {gif: 'GIF', vertical: '竖长', horizontal: '横长', large: '高清', normal: '普通'};
     const primary = item.categories.find(c => c !== 'all' && tagMap[c]);
     let tagHtml = '';
     if (primary) tagHtml = `<span class="tag tag-${primary}">${tagMap[primary]}</span>`;
     meta.innerHTML = `${tagHtml} <span>${item.width}×${item.height}</span>`;
 
-    // 分类过滤检查
     if (category !== 'all' && !item.categories.includes(category)) {
       const idx = track.indexOf(cardObj);
       if (idx !== -1) {
-        item.failed = false; // 不算真正失效，只是不匹配
+        item.failed = false;
         setTimeout(() => removeCardAt(idx), 100);
       }
     }
@@ -749,7 +726,7 @@ function doLoadImage(cardObj, onDone) {
     if (resolved) return;
     resolved = true;
     clearTimeout(timer);
-    showError();
+    handleFail();
     if (onDone) onDone();
   };
 
@@ -760,7 +737,9 @@ function doLoadImage(cardObj, onDone) {
 // ========== 轨道控制 ==========
 function updateTrack() {
   const trackEl = document.getElementById('track');
-  const cardWidth = track[0]?.element.offsetWidth || window.innerWidth * 0.85;
+  if (track.length === 0) return;
+  const cardEl = track[0].element;
+  const cardWidth = cardEl.offsetWidth || window.innerWidth * 0.85;
   const gap = 40;
   const offset = -(currentIndex * (cardWidth + gap));
   trackEl.style.transform = `translateX(calc(-50% + ${offset}px))`;
@@ -774,11 +753,19 @@ function updateTrack() {
 function updateDots() {
   const dots = document.getElementById('dots');
   dots.innerHTML = '';
-  track.forEach((_, i) => {
+  // 最多显示10个点
+  const total = track.length;
+  const maxDots = Math.min(total, 10);
+  let start = 0;
+  if (total > 10) {
+    start = Math.max(0, Math.min(currentIndex - 4, total - 10));
+  }
+  for (let i = 0; i < maxDots; i++) {
+    const realIdx = start + i;
     const d = document.createElement('div');
-    d.className = 'dot' + (i === currentIndex ? ' active' : '');
+    d.className = 'dot' + (realIdx === currentIndex ? ' active' : '');
     dots.appendChild(d);
-  });
+  }
 }
 
 function goNext() {
@@ -787,8 +774,19 @@ function goNext() {
     updateTrack();
     updateDots();
     preloadNearby();
+    // 快到底了自动补充
+    if (currentIndex >= track.length - 3) {
+      appendMore(APPEND_SIZE);
+    }
   } else {
-    showToast('已经是最后一张了');
+    appendMore(APPEND_SIZE);
+    if (currentIndex < track.length - 1) {
+      currentIndex++;
+      updateTrack();
+      updateDots();
+    } else {
+      showToast('没有更多图片了');
+    }
   }
 }
 
@@ -804,8 +802,7 @@ function goPrev() {
 }
 
 function preloadNearby() {
-  // 预加载前后各1张
-  [-1, 1].forEach(offset => {
+  [-2, -1, 1, 2].forEach(offset => {
     const idx = currentIndex + offset;
     if (idx >= 0 && idx < track.length) {
       const cardObj = track[idx];
@@ -816,8 +813,7 @@ function preloadNearby() {
   });
 }
 
-// ========== 交互事件 ==========
-// 滚轮
+// ========== 交互 ==========
 let wheelLock = false;
 document.getElementById('stage').addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -828,43 +824,34 @@ document.getElementById('stage').addEventListener('wheel', (e) => {
   setTimeout(() => wheelLock = false, 400);
 }, { passive: false });
 
-// 键盘
 document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goNext();
   if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev();
   if (e.key === 'Escape') closeLightbox();
 });
 
-// 触摸滑动
+let touchStartX = 0;
+let isDragging = false;
 const stage = document.getElementById('stage');
 stage.addEventListener('touchstart', (e) => {
   touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
   isDragging = true;
 }, { passive: true });
-
 stage.addEventListener('touchend', (e) => {
   if (!isDragging) return;
   isDragging = false;
   const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+  if (Math.abs(dx) > 50) {
     if (dx < 0) goNext();
     else goPrev();
   }
 }, { passive: true });
 
-// 窗口大小变化
-window.addEventListener('resize', () => {
-  updateTrack();
-});
+window.addEventListener('resize', updateTrack);
 
-// 灯箱
 function openLightbox(url) {
-  const box = document.getElementById('lightbox');
-  const img = document.getElementById('lightboxImg');
-  img.src = url;
-  box.classList.add('active');
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('active');
 }
 
 function closeLightbox() {
