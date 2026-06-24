@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>福利吧图库 - 瀑布流随机浏览</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a20;
+    --surface-hover: #25252e;
+    --text: #e0e0e0;
+    --text-secondary: #888;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --danger: #ef4444;
+    --border: rgba(255,255,255,0.08);
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+  }
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15,15,19,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+  }
+  .header-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo {
+    font-size: 20px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-right: auto;
+  }
+  .stats {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .stat-item { display: flex; align-items: center; gap: 4px; }
+  .stat-dot {
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  }
+  .dot-total { background: #6366f1; }
+  .dot-green { background: #22c55e; }
+  .dot-red { background: var(--danger); }
+  .dot-gray { background: #6b7280; }
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+  .btn.active {
+    background: rgba(99,102,241,0.2);
+    border-color: var(--accent);
+    color: var(--accent-hover);
+  }
+  .filters {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .filter-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-right: 8px;
+  }
+  .container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 24px 40px;
+  }
+  .masonry {
+    column-count: 1;
+    column-gap: 16px;
+  }
+  @media (min-width: 640px) { .masonry { column-count: 2; } }
+  @media (min-width: 1024px) { .masonry { column-count: 3; } }
+  @media (min-width: 1440px) { .masonry { column-count: 4; } }
+  
+  .image-card {
+    break-inside: avoid;
+    margin-bottom: 16px;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: transform 0.3s, box-shadow 0.3s, opacity 0.3s;
+    cursor: pointer;
+    opacity: 0;
+    animation: fadeIn 0.5s forwards;
+  }
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+  .image-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+    border-color: rgba(99,102,241,0.3);
+  }
+  .image-card.removing {
+    opacity: 0 !important;
+    transform: scale(0.9) !important;
+    pointer-events: none;
+  }
+  .image-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: opacity 0.4s;
+  }
+  .image-card img.loading {
+    opacity: 0;
+    min-height: 200px;
+    background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .image-card img.loaded {
+    opacity: 1;
+  }
+  .tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .image-card:hover .tag,
+  .tag.visible {
+    opacity: 1;
+  }
+  .tag-gif { background: #ef4444; }
+  .tag-vertical { background: #3b82f6; }
+  .tag-horizontal { background: #10b981; }
+  .tag-large { background: #f59e0b; }
+  .tag-normal { background: #6b7280; }
+  
+  .info-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .image-card:hover .info-bar {
+    opacity: 1;
+  }
+  .info-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .sentinel {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+    gap: 8px;
+  }
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .lightbox.active {
+    display: flex;
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100vh;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .lightbox-close:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="logo">福利吧图库</div>
+    <div class="stats" id="stats">
+      <span class="stat-item"><span class="stat-dot dot-green"></span>加载中...</span>
+    </div>
+    <button class="btn btn-primary" id="refreshBtn" onclick="refreshAll()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.5s" id="refreshIcon"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+      换一批
+    </button>
+  </div>
+</div>
+
+<div class="filters">
+  <span class="filter-label">分类：</span>
+  <button class="btn active" data-cat="all" onclick="setCategory('all')">全部</button>
+  <button class="btn" data-cat="gif" onclick="setCategory('gif')">动图</button>
+  <button class="btn" data-cat="vertical" onclick="setCategory('vertical')">竖长图</button>
+  <button class="btn" data-cat="horizontal" onclick="setCategory('horizontal')">横长图</button>
+  <button class="btn" data-cat="large" onclick="setCategory('large')">高清大图</button>
+  <button class="btn" data-cat="normal" onclick="setCategory('normal')">普通图</button>
+</div>
+
+<div class="container">
+  <div class="masonry" id="grid"></div>
+  <div class="sentinel" id="sentinel">
+    <div class="spinner"></div>
+    <span>加载更多...</span>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="event.stopPropagation(); closeLightbox()">&times;</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<script>
+const BATCH_SIZE = 20;
+const LOAD_TIMEOUT = 10000; // 10秒超时
+const MIN_DIMENSION = 10;   // 小于10px视为占位图
+const JSON_URL = 'fuliba_images.json';
+
+let allImages = [];
+let state = {
+  category: 'all',
+  displayedIds: new Set(),
+  rejectedIds: new Set(),
+  failedIds: new Set(),
+  loading: false,
+  failedCount: 0
+};
+
+fetch(JSON_URL)
+  .then(r => r.json())
+  .then(data => {
+    let id = 0;
+    for (const [articleUrl, imgUrls] of Object.entries(data)) {
+      const title = articleUrl.split('/').pop().replace('.html', '');
+      imgUrls.forEach(imgUrl => {
+        allImages.push({
+          id: id++,
+          articleUrl,
+          imgUrl,
+          title,
+          loaded: false,
+          width: 0,
+          height: 0,
+          categories: ['all'],
+          failed: false
+        });
+      });
+    }
+    allImages.forEach(i => {
+      if (i.imgUrl.toLowerCase().includes('.gif')) i.categories.push('gif');
+    });
+    updateStats();
+    loadBatch();
+    initObserver();
+  })
+  .catch(err => {
+    document.getElementById('grid').innerHTML = `
+      <div class="empty-state">
+        <div style="font-size:18px; margin-bottom:8px;">📂 加载失败</div>
+        <div>${err.message}</div>
+        <div style="margin-top:8px; font-size:13px; opacity:0.7">
+          请确保 <code style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${JSON_URL}</code> 与本文件在同一目录
+        </div>
+      </div>`;
+    document.getElementById('sentinel').style.display = 'none';
+  });
+
+function updateStats() {
+  const total = allImages.length;
+  const displayed = state.displayedIds.size;
+  const failed = state.failedCount;
+  const remaining = total - displayed - failed;
+  
+  document.getElementById('stats').innerHTML = `
+    <span class="stat-item" title="图片总数"><span class="stat-dot dot-total"></span>${total}</span>
+    <span class="stat-item" title="已显示"><span class="stat-dot dot-green"></span>${displayed}</span>
+    <span class="stat-item" title="已失效"><span class="stat-dot dot-red"></span>${failed}</span>
+    <span class="stat-item" title="剩余可用"><span class="stat-dot dot-gray"></span>${remaining}</span>
+  `;
+}
+
+function setCategory(cat) {
+  if (state.category === cat) return;
+  state.category = cat;
+  state.displayedIds.clear();
+  state.rejectedIds.clear();
+  
+  document.querySelectorAll('.filters .btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cat === cat);
+  });
+  
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  document.getElementById('sentinel').innerHTML = '<div class="spinner"></div><span>加载更多...</span>';
+  document.getElementById('sentinel').style.display = 'flex';
+  loadBatch();
+}
+
+function refreshAll() {
+  const icon = document.getElementById('refreshIcon');
+  icon.style.transform = `rotate(${Date.now()}deg)`;
+  state.displayedIds.clear();
+  state.rejectedIds.clear();
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('sentinel').style.display = 'flex';
+  loadBatch();
+}
+
+function getPool() {
+  const cat = state.category;
+  return allImages.filter(i => {
+    if (i.failed || state.displayedIds.has(i.id) || state.rejectedIds.has(i.id)) return false;
+    if (cat === 'all') return true;
+    if (cat === 'gif') return i.categories.includes('gif');
+    if (i.loaded) return i.categories.includes(cat);
+    return true;
+  });
+}
+
+function pickRandom(pool, n) {
+  const arr = [...pool];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.slice(0, n);
+}
+
+function loadBatch(count = BATCH_SIZE) {
+  if (state.loading) return;
+  state.loading = true;
+  
+  const pool = getPool();
+  if (pool.length === 0) {
+    const sentinel = document.getElementById('sentinel');
+    if (state.displayedIds.size === 0) {
+      sentinel.innerHTML = '<span>该分类暂无可用图片</span>';
+    } else {
+      sentinel.innerHTML = '<span>没有更多图片了</span>';
+    }
+    state.loading = false;
+    return;
+  }
+  
+  const picks = pickRandom(pool, count);
+  const grid = document.getElementById('grid');
+  let completed = 0;
+  
+  picks.forEach(item => {
+    state.displayedIds.add(item.id);
+    const card = createCard(item, () => {
+      completed++;
+      if (completed >= picks.length) {
+        state.loading = false;
+      }
+    });
+    grid.appendChild(card);
+  });
+  
+  if (picks.length === 0) state.loading = false;
+  updateStats();
+}
+
+function createCard(item, onDone) {
+  const div = document.createElement('div');
+  div.className = 'image-card';
+  div.dataset.id = item.id;
+  
+  const img = document.createElement('img');
+  img.className = 'loading';
+  img.referrerPolicy = 'no-referrer';
+  img.decoding = 'async';
+  
+  let resolved = false;
+  const timer = setTimeout(() => {
+    if (!resolved) {
+      resolved = true;
+      removeCard(item, div, 'timeout');
+      if (onDone) onDone();
+    }
+  }, LOAD_TIMEOUT);
+  
+  img.onload = () => {
+    if (resolved) return;
+    // 检测占位图（极小尺寸）
+    if (img.naturalWidth < MIN_DIMENSION || img.naturalHeight < MIN_DIMENSION) {
+      resolved = true;
+      clearTimeout(timer);
+      removeCard(item, div, 'placeholder');
+      if (onDone) onDone();
+      return;
+    }
+    
+    resolved = true;
+    clearTimeout(timer);
+    img.classList.remove('loading');
+    img.classList.add('loaded');
+    item.loaded = true;
+    item.width = img.naturalWidth;
+    item.height = img.naturalHeight;
+    
+    classifyAndTag(item, div);
+    if (onDone) onDone();
+  };
+  
+  img.onerror = () => {
+    if (resolved) return;
+    resolved = true;
+    clearTimeout(timer);
+    removeCard(item, div, 'error');
+    if (onDone) onDone();
+  };
+  
+  img.src = item.imgUrl;
+  div.appendChild(img);
+  div.onclick = (e) => {
+    if (!item.failed) openLightbox(item.imgUrl);
+  };
+  
+  return div;
+}
+
+function removeCard(item, card, reason) {
+  item.failed = true;
+  state.failedCount++;
+  state.displayedIds.delete(item.id);
+  updateStats();
+  
+  card.classList.add('removing');
+  setTimeout(() => {
+    if (card.parentNode) card.remove();
+    // 自动补充一张新图
+    loadBatch(1);
+  }, 300);
+}
+
+function classifyAndTag(item, card) {
+  const ratio = item.height / item.width;
+  const cats = ['all'];
+  if (item.imgUrl.toLowerCase().includes('.gif')) cats.push('gif');
+  if (ratio > 1.8) cats.push('vertical');
+  else if (ratio < 0.5) cats.push('horizontal');
+  else cats.push('normal');
+  if (item.width > 1500 || item.height > 1500) cats.push('large');
+  item.categories = cats;
+  
+  const tagMap = {gif: 'GIF', vertical: '竖长', horizontal: '横长', large: '高清', normal: '普通'};
+  const primary = item.categories.find(c => c !== 'all' && tagMap[c]);
+  if (primary) {
+    const tag = document.createElement('span');
+    tag.className = `tag tag-${primary} visible`;
+    tag.textContent = tagMap[primary];
+    card.appendChild(tag);
+  }
+  
+  const info = document.createElement('div');
+  info.className = 'info-bar';
+  info.innerHTML = `<div class="info-text">${item.title} · ${item.width}×${item.height}</div>`;
+  card.appendChild(info);
+  
+  // 分类校验：当前分类不匹配则移除
+  if (state.category !== 'all' && !item.categories.includes(state.category)) {
+    state.rejectedIds.add(item.id);
+    card.classList.add('removing');
+    setTimeout(() => {
+      if (card.parentNode) card.remove();
+      state.displayedIds.delete(item.id);
+      loadBatch(1);
+    }, 300);
+  }
+}
+
+function initObserver() {
+  const sentinel = document.getElementById('sentinel');
+  const observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && !state.loading) {
+      loadBatch();
+    }
+  }, { rootMargin: '400px' });
+  observer.observe(sentinel);
+}
+
+function openLightbox(url) {
+  const box = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  img.src = url;
+  box.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const box = document.getElementById('lightbox');
+  box.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox();
+});
+</script>
+</body>
+</html>
