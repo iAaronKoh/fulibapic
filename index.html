@@ -367,25 +367,24 @@ function optimizeUrl(url) {
 }
 
 // ============================================
-// 核心修复：Canvas 像素检测 sogou 占位图
-// 占位图特征：白底/浅灰底 + 重复图标，白色像素占比 > 80%
+// 核心修复：Canvas 检测 sogou 占位图
+// 占位图特征：白底/浅灰底 + 重复图标，几乎全是灰度
 // ============================================
 function isPlaceholderByCanvas(img) {
   try {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    // 采样 80x80 足够判断
-    const sampleW = Math.min(img.naturalWidth, 80);
-    const sampleH = Math.min(img.naturalHeight, 80);
+    // 采样 100x100 足够判断
+    const sampleW = Math.min(img.naturalWidth, 100);
+    const sampleH = Math.min(img.naturalHeight, 100);
     canvas.width = sampleW;
     canvas.height = sampleH;
     ctx.drawImage(img, 0, 0, sampleW, sampleH);
     
     const imageData = ctx.getImageData(0, 0, sampleW, sampleH).data;
     const totalPixels = imageData.length / 4;
-    let lightPixels = 0;      // 纯白/近白
-    let grayPixels = 0;       // 浅灰
-    let colorfulPixels = 0;   // 有色像素
+    let grayPixels = 0;   // R≈G≈B，灰度
+    let lightPixels = 0;  // 亮度 > 180
     
     for (let i = 0; i < imageData.length; i += 4) {
       const r = imageData[i];
@@ -394,23 +393,23 @@ function isPlaceholderByCanvas(img) {
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
       const diff = max - min;
+      const brightness = (r + g + b) / 3;
       
-      if (r > 240 && g > 240 && b > 240) {
-        lightPixels++;
-      } else if (diff < 15 && max > 200) {
-        // 浅灰（R≈G≈B 且 > 200）
+      // 灰度判定：RGB 差异 < 40（覆盖背景 #f0f0f0 和图标 #d0d0d0）
+      if (diff < 40) {
         grayPixels++;
-      } else if (diff > 30) {
-        // 有明显颜色差异，正常图片
-        colorfulPixels++;
+      }
+      if (brightness > 180) {
+        lightPixels++;
       }
     }
     
-    // 占位图判定：白色+浅灰占比 > 82%，且有色像素极少
-    const paleRatio = (lightPixels + grayPixels) / totalPixels;
-    const colorRatio = colorfulPixels / totalPixels;
+    const grayRatio = grayPixels / totalPixels;
+    const lightRatio = lightPixels / totalPixels;
     
-    return paleRatio > 0.82 && colorRatio < 0.05;
+    // 占位图：几乎全是灰度(>85%)，且整体很亮(>60%)
+    // 正常照片不可能 85% 以上像素都是灰度
+    return grayRatio > 0.85 && lightRatio > 0.6;
   } catch (e) {
     return false;
   }
@@ -598,11 +597,11 @@ function doLoadImage(item, card, onDone) {
   img.onload = () => {
     if (resolved) return;
     
-    // ========== 核心修复：Canvas 检测占位图 ==========
+    // ========== 核心：Canvas 检测占位图 ==========
     if (isPlaceholderByCanvas(img)) {
       resolved = true;
       clearTimeout(timer);
-      removeCard(item, card, 'placeholder_canvas');
+      removeCard(item, card, 'placeholder');
       if (onDone) onDone();
       return;
     }
@@ -611,7 +610,7 @@ function doLoadImage(item, card, onDone) {
     if (img.naturalWidth < MIN_DIMENSION || img.naturalHeight < MIN_DIMENSION) {
       resolved = true;
       clearTimeout(timer);
-      removeCard(item, card, 'placeholder_size');
+      removeCard(item, card, 'tiny');
       if (onDone) onDone();
       return;
     }
