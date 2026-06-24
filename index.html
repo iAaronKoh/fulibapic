@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>福利吧图库 - 瀑布流随机浏览</title>
+<title>果冻图库 - 瀑布流随机浏览</title>
 <style>
   :root {
     --bg: #0f0f13;
@@ -285,7 +285,7 @@
 
 <div class="header">
   <div class="header-inner">
-    <div class="logo">福利吧图库</div>
+    <div class="logo">果冻图库</div>
     <div class="stats" id="stats">
       <span class="stat-item"><span class="stat-dot dot-green"></span>加载中...</span>
     </div>
@@ -322,7 +322,7 @@
 <script>
 const BATCH_SIZE = 12;
 const LOAD_TIMEOUT = 5000;
-const MIN_DIMENSION = 50;      // 小于50px视为占位图
+const MIN_DIMENSION = 50;
 const MAX_CONCURRENT = 6;
 const JSON_URL = 'fuliba_images.json';
 
@@ -366,17 +366,54 @@ function optimizeUrl(url) {
   return url;
 }
 
-// 检测 sogou 图床返回的占位图（正方形小图）
-function isPlaceholder(w, h, url) {
-  // sogou 占位图特征：正方形且 <= 250px
-  if (url && url.includes('sogoucdn.com') && w === h && w <= 250) {
-    return true;
+// ============================================
+// 核心修复：Canvas 像素检测 sogou 占位图
+// 占位图特征：白底/浅灰底 + 重复图标，白色像素占比 > 80%
+// ============================================
+function isPlaceholderByCanvas(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    // 采样 80x80 足够判断
+    const sampleW = Math.min(img.naturalWidth, 80);
+    const sampleH = Math.min(img.naturalHeight, 80);
+    canvas.width = sampleW;
+    canvas.height = sampleH;
+    ctx.drawImage(img, 0, 0, sampleW, sampleH);
+    
+    const imageData = ctx.getImageData(0, 0, sampleW, sampleH).data;
+    const totalPixels = imageData.length / 4;
+    let lightPixels = 0;      // 纯白/近白
+    let grayPixels = 0;       // 浅灰
+    let colorfulPixels = 0;   // 有色像素
+    
+    for (let i = 0; i < imageData.length; i += 4) {
+      const r = imageData[i];
+      const g = imageData[i + 1];
+      const b = imageData[i + 2];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const diff = max - min;
+      
+      if (r > 240 && g > 240 && b > 240) {
+        lightPixels++;
+      } else if (diff < 15 && max > 200) {
+        // 浅灰（R≈G≈B 且 > 200）
+        grayPixels++;
+      } else if (diff > 30) {
+        // 有明显颜色差异，正常图片
+        colorfulPixels++;
+      }
+    }
+    
+    // 占位图判定：白色+浅灰占比 > 82%，且有色像素极少
+    const paleRatio = (lightPixels + grayPixels) / totalPixels;
+    const colorRatio = colorfulPixels / totalPixels;
+    
+    return paleRatio > 0.82 && colorRatio < 0.05;
+  } catch (e) {
+    return false;
   }
-  // 通用：任意来源，尺寸过小
-  if (w < MIN_DIMENSION || h < MIN_DIMENSION) {
-    return true;
-  }
-  return false;
 }
 
 fetch(JSON_URL)
@@ -561,11 +598,20 @@ function doLoadImage(item, card, onDone) {
   img.onload = () => {
     if (resolved) return;
     
-    // 关键修复：检测 sogou 占位图（正方形小图）
-    if (isPlaceholder(img.naturalWidth, img.naturalHeight, item.imgUrl)) {
+    // ========== 核心修复：Canvas 检测占位图 ==========
+    if (isPlaceholderByCanvas(img)) {
       resolved = true;
       clearTimeout(timer);
-      removeCard(item, card, 'placeholder');
+      removeCard(item, card, 'placeholder_canvas');
+      if (onDone) onDone();
+      return;
+    }
+    
+    // 兜底：极小尺寸
+    if (img.naturalWidth < MIN_DIMENSION || img.naturalHeight < MIN_DIMENSION) {
+      resolved = true;
+      clearTimeout(timer);
+      removeCard(item, card, 'placeholder_size');
       if (onDone) onDone();
       return;
     }
