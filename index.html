@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>果冻图库 - 瀑布流随机浏览</title>
+<title>福利吧图库 - 瀑布流随机浏览</title>
 <style>
   :root {
     --bg: #0f0f13;
@@ -133,6 +133,7 @@
     cursor: pointer;
     opacity: 0;
     animation: fadeIn 0.5s forwards;
+    min-height: 120px;
   }
   @keyframes fadeIn {
     to { opacity: 1; }
@@ -284,7 +285,7 @@
 
 <div class="header">
   <div class="header-inner">
-    <div class="logo">果冻图库</div>
+    <div class="logo">福利吧图库</div>
     <div class="stats" id="stats">
       <span class="stat-item"><span class="stat-dot dot-green"></span>加载中...</span>
     </div>
@@ -319,9 +320,10 @@
 </div>
 
 <script>
-const BATCH_SIZE = 20;
-const LOAD_TIMEOUT = 10000; // 10秒超时
-const MIN_DIMENSION = 10;   // 小于10px视为占位图
+const BATCH_SIZE = 12;
+const LOAD_TIMEOUT = 5000;
+const MIN_DIMENSION = 50;      // 小于50px视为占位图
+const MAX_CONCURRENT = 6;
 const JSON_URL = 'fuliba_images.json';
 
 let allImages = [];
@@ -330,9 +332,52 @@ let state = {
   displayedIds: new Set(),
   rejectedIds: new Set(),
   failedIds: new Set(),
-  loading: false,
   failedCount: 0
 };
+
+let loadQueue = [];
+let activeLoads = 0;
+
+const lazyObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const card = entry.target;
+      const id = parseInt(card.dataset.id);
+      const item = allImages.find(i => i.id === id);
+      if (item && !item.loadStarted && !item.failed) {
+        item.loadStarted = true;
+        lazyObserver.unobserve(card);
+        enqueueLoad(item, card);
+      }
+    }
+  });
+}, { rootMargin: '300px 0px' });
+
+const scrollObserver = new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting) {
+    loadBatch();
+  }
+}, { rootMargin: '400px' });
+
+function optimizeUrl(url) {
+  if (url.includes('sogoucdn.com') && url.includes('/q/100/')) {
+    return url.replace('/q/100/', '/q/60/');
+  }
+  return url;
+}
+
+// 检测 sogou 图床返回的占位图（正方形小图）
+function isPlaceholder(w, h, url) {
+  // sogou 占位图特征：正方形且 <= 250px
+  if (url && url.includes('sogoucdn.com') && w === h && w <= 250) {
+    return true;
+  }
+  // 通用：任意来源，尺寸过小
+  if (w < MIN_DIMENSION || h < MIN_DIMENSION) {
+    return true;
+  }
+  return false;
+}
 
 fetch(JSON_URL)
   .then(r => r.json())
@@ -344,13 +389,15 @@ fetch(JSON_URL)
         allImages.push({
           id: id++,
           articleUrl,
-          imgUrl,
+          imgUrl: optimizeUrl(imgUrl),
+          originalUrl: imgUrl,
           title,
           loaded: false,
           width: 0,
           height: 0,
           categories: ['all'],
-          failed: false
+          failed: false,
+          loadStarted: false
         });
       });
     }
@@ -359,7 +406,7 @@ fetch(JSON_URL)
     });
     updateStats();
     loadBatch();
-    initObserver();
+    scrollObserver.observe(document.getElementById('sentinel'));
   })
   .catch(err => {
     document.getElementById('grid').innerHTML = `
@@ -387,20 +434,27 @@ function updateStats() {
   `;
 }
 
+function clearAll() {
+  document.querySelectorAll('.image-card').forEach(card => lazyObserver.unobserve(card));
+  loadQueue = [];
+  activeLoads = 0;
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('sentinel').style.display = 'flex';
+  document.getElementById('sentinel').innerHTML = '<div class="spinner"></div><span>加载更多...</span>';
+}
+
 function setCategory(cat) {
   if (state.category === cat) return;
   state.category = cat;
   state.displayedIds.clear();
   state.rejectedIds.clear();
+  allImages.forEach(i => { i.loadStarted = false; });
   
   document.querySelectorAll('.filters .btn').forEach(b => {
     b.classList.toggle('active', b.dataset.cat === cat);
   });
   
-  const grid = document.getElementById('grid');
-  grid.innerHTML = '';
-  document.getElementById('sentinel').innerHTML = '<div class="spinner"></div><span>加载更多...</span>';
-  document.getElementById('sentinel').style.display = 'flex';
+  clearAll();
   loadBatch();
 }
 
@@ -409,8 +463,8 @@ function refreshAll() {
   icon.style.transform = `rotate(${Date.now()}deg)`;
   state.displayedIds.clear();
   state.rejectedIds.clear();
-  document.getElementById('grid').innerHTML = '';
-  document.getElementById('sentinel').style.display = 'flex';
+  allImages.forEach(i => { i.loadStarted = false; });
+  clearAll();
   loadBatch();
 }
 
@@ -435,9 +489,6 @@ function pickRandom(pool, n) {
 }
 
 function loadBatch(count = BATCH_SIZE) {
-  if (state.loading) return;
-  state.loading = true;
-  
   const pool = getPool();
   if (pool.length === 0) {
     const sentinel = document.getElementById('sentinel');
@@ -446,30 +497,22 @@ function loadBatch(count = BATCH_SIZE) {
     } else {
       sentinel.innerHTML = '<span>没有更多图片了</span>';
     }
-    state.loading = false;
     return;
   }
   
   const picks = pickRandom(pool, count);
   const grid = document.getElementById('grid');
-  let completed = 0;
   
   picks.forEach(item => {
     state.displayedIds.add(item.id);
-    const card = createCard(item, () => {
-      completed++;
-      if (completed >= picks.length) {
-        state.loading = false;
-      }
-    });
+    const card = createCard(item);
     grid.appendChild(card);
   });
   
-  if (picks.length === 0) state.loading = false;
   updateStats();
 }
 
-function createCard(item, onDone) {
+function createCard(item) {
   const div = document.createElement('div');
   div.className = 'image-card';
   div.dataset.id = item.id;
@@ -478,23 +521,51 @@ function createCard(item, onDone) {
   img.className = 'loading';
   img.referrerPolicy = 'no-referrer';
   img.decoding = 'async';
+  div.appendChild(img);
   
+  div.onclick = () => {
+    if (!item.failed) openLightbox(item.originalUrl);
+  };
+  
+  lazyObserver.observe(div);
+  return div;
+}
+
+function enqueueLoad(item, card) {
+  loadQueue.push({item, card});
+  processQueue();
+}
+
+function processQueue() {
+  if (activeLoads >= MAX_CONCURRENT || loadQueue.length === 0) return;
+  const {item, card} = loadQueue.shift();
+  activeLoads++;
+  doLoadImage(item, card, () => {
+    activeLoads--;
+    processQueue();
+  });
+}
+
+function doLoadImage(item, card, onDone) {
+  const img = card.querySelector('img');
   let resolved = false;
+  
   const timer = setTimeout(() => {
     if (!resolved) {
       resolved = true;
-      removeCard(item, div, 'timeout');
+      removeCard(item, card, 'timeout');
       if (onDone) onDone();
     }
   }, LOAD_TIMEOUT);
   
   img.onload = () => {
     if (resolved) return;
-    // 检测占位图（极小尺寸）
-    if (img.naturalWidth < MIN_DIMENSION || img.naturalHeight < MIN_DIMENSION) {
+    
+    // 关键修复：检测 sogou 占位图（正方形小图）
+    if (isPlaceholder(img.naturalWidth, img.naturalHeight, item.imgUrl)) {
       resolved = true;
       clearTimeout(timer);
-      removeCard(item, div, 'placeholder');
+      removeCard(item, card, 'placeholder');
       if (onDone) onDone();
       return;
     }
@@ -507,7 +578,7 @@ function createCard(item, onDone) {
     item.width = img.naturalWidth;
     item.height = img.naturalHeight;
     
-    classifyAndTag(item, div);
+    classifyAndTag(item, card);
     if (onDone) onDone();
   };
   
@@ -515,17 +586,11 @@ function createCard(item, onDone) {
     if (resolved) return;
     resolved = true;
     clearTimeout(timer);
-    removeCard(item, div, 'error');
+    removeCard(item, card, 'error');
     if (onDone) onDone();
   };
   
   img.src = item.imgUrl;
-  div.appendChild(img);
-  div.onclick = (e) => {
-    if (!item.failed) openLightbox(item.imgUrl);
-  };
-  
-  return div;
 }
 
 function removeCard(item, card, reason) {
@@ -537,7 +602,6 @@ function removeCard(item, card, reason) {
   card.classList.add('removing');
   setTimeout(() => {
     if (card.parentNode) card.remove();
-    // 自动补充一张新图
     loadBatch(1);
   }, 300);
 }
@@ -566,7 +630,6 @@ function classifyAndTag(item, card) {
   info.innerHTML = `<div class="info-text">${item.title} · ${item.width}×${item.height}</div>`;
   card.appendChild(info);
   
-  // 分类校验：当前分类不匹配则移除
   if (state.category !== 'all' && !item.categories.includes(state.category)) {
     state.rejectedIds.add(item.id);
     card.classList.add('removing');
@@ -576,16 +639,6 @@ function classifyAndTag(item, card) {
       loadBatch(1);
     }, 300);
   }
-}
-
-function initObserver() {
-  const sentinel = document.getElementById('sentinel');
-  const observer = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting && !state.loading) {
-      loadBatch();
-    }
-  }, { rootMargin: '400px' });
-  observer.observe(sentinel);
 }
 
 function openLightbox(url) {
